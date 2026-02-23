@@ -1,9 +1,9 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from dotenv import load_dotenv
-import httpx
-import tempfile, os
+from pydantic import BaseModel
+import httpx, os
 
 load_dotenv()
 
@@ -21,25 +21,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class TextInput(BaseModel):
+    text: str
+
 @app.get("/")
 def root():
     return {"message": "APIが動いています！"}
 
 @app.post("/summarize")
-async def summarize(file: UploadFile = File(...)):
-    with tempfile.NamedTemporaryFile(
-        delete=False, suffix=".m4a"
-    ) as tmp:
-        tmp.write(await file.read())
-        tmp_path = tmp.name
+async def summarize(input: TextInput):
 
-    with open(tmp_path, "rb") as audio:
-        transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio,
-            language="ja"
-        )
-
+    # GPT-4oで要約
     summary_response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{
@@ -56,12 +48,10 @@ async def summarize(file: UploadFile = File(...)):
 TODO：（あれば記載、なければ「なし」）
 
 【通話内容】
-{transcript.text}
+{input.text}
 """
         }]
     )
-
-    os.unlink(tmp_path)
 
     summary_text = summary_response.choices[0].message.content
 
@@ -76,12 +66,11 @@ TODO：（あれば記載、なければ「なし」）
             json={
                 "title": summary_text.split("\n")[0],
                 "summary": summary_text,
-                "transcript": transcript.text,
+                "transcript": input.text,
                 "color": "yellow"
             }
         )
 
     return {
-        "transcript": transcript.text,
         "summary": summary_text
     }
