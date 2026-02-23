@@ -10,8 +10,9 @@ load_dotenv()
 app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+ADALO_API_KEY = os.getenv("ADALO_API_KEY")
+ADALO_APP_ID = os.getenv("ADALO_APP_ID")
+ADALO_COLLECTION_ID = os.getenv("ADALO_COLLECTION_ID")
 
 app.add_middleware(
     CORSMiddleware,
@@ -64,13 +65,12 @@ TODO：（あれば記載、なければ「なし」）
 
     summary_text = summary_response.choices[0].message.content
 
-    # Supabaseに保存
+    # Adaloに保存
     async with httpx.AsyncClient() as http:
         await http.post(
-            f"{SUPABASE_URL}/rest/v1/call_notes",
+            f"https://api.adalo.com/v0/apps/{ADALO_APP_ID}/collections/{ADALO_COLLECTION_ID}",
             headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Authorization": f"Bearer {ADALO_API_KEY}",
                 "Content-Type": "application/json",
             },
             json={
