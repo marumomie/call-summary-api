@@ -2,12 +2,16 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from dotenv import load_dotenv
+import httpx
 import tempfile, os
 
 load_dotenv()
 
 app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,7 +62,26 @@ TODO：（あれば記載、なければ「なし」）
 
     os.unlink(tmp_path)
 
+    summary_text = summary_response.choices[0].message.content
+
+    # Supabaseに保存
+    async with httpx.AsyncClient() as http:
+        await http.post(
+            f"{SUPABASE_URL}/rest/v1/call_notes",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "title": summary_text.split("\n")[0],
+                "summary": summary_text,
+                "transcript": transcript.text,
+                "color": "yellow"
+            }
+        )
+
     return {
         "transcript": transcript.text,
-        "summary": summary_response.choices[0].message.content
+        "summary": summary_text
     }
