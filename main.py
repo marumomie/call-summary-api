@@ -57,7 +57,7 @@ TODO：（あれば記載、なければ「なし」）
     # Bubbleに保存
     async with httpx.AsyncClient() as http:
         await http.post(
-            f"https://{BUBBLE_APP_ID}.bubbleapps.io/version-test/api/1.1/obj/callnote",
+            f"https://{BUBBLE_APP_ID}.bubbleapps.io/version-test/api/1.1/obj/CallNote",
             headers={
                 "Authorization": f"Bearer {BUBBLE_API_KEY}",
                 "Content-Type": "application/json",
