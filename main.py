@@ -10,9 +10,8 @@ load_dotenv()
 app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-ADALO_API_KEY = os.getenv("ADALO_API_KEY")
-ADALO_APP_ID = os.getenv("ADALO_APP_ID")
-ADALO_COLLECTION_ID = os.getenv("ADALO_COLLECTION_ID")
+BUBBLE_API_KEY = os.getenv("BUBBLE_API_KEY")
+BUBBLE_APP_ID = os.getenv("BUBBLE_APP_ID")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,7 +30,6 @@ def root():
 @app.post("/summarize")
 async def summarize(input: TextInput):
 
-    # GPT-4oで要約
     summary_response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{
@@ -54,17 +52,18 @@ TODO：（あれば記載、なければ「なし」）
     )
 
     summary_text = summary_response.choices[0].message.content
+    title = summary_text.split("\n")[0].replace("タイトル：", "").strip()
 
-    # Adaloに保存
+    # Bubbleに保存
     async with httpx.AsyncClient() as http:
         await http.post(
-            f"https://api.adalo.com/v0/apps/{ADALO_APP_ID}/collections/{ADALO_COLLECTION_ID}",
+            f"https://{BUBBLE_APP_ID}.bubbleapps.io/version-test/api/1.1/obj/callnote",
             headers={
-                "Authorization": f"Bearer {ADALO_API_KEY}",
+                "Authorization": f"Bearer {BUBBLE_API_KEY}",
                 "Content-Type": "application/json",
             },
             json={
-                "title": summary_text.split("\n")[0],
+                "title": title,
                 "summary": summary_text,
                 "transcript": input.text,
                 "color": "yellow"
