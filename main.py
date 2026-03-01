@@ -29,33 +29,16 @@ def root():
 
 @app.post("/summarize")
 async def summarize(input: TextInput):
-
     summary_response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{
             "role": "user",
-            "content": f"""
-以下の通話内容を日本語で要約してください。
-
-【出力形式】
-タイトル：（通話相手や話題を一言で）
-要点：
-・（重要なポイント1）
-・（重要なポイント2）
-・（重要なポイント3）
-TODO：（あれば記載、なければ「なし」）
-
-【通話内容】
-{input.text}
-"""
+            "content": "以下の通話内容を日本語で要約してください。\n\n【出力形式】\nタイトル：（通話相手や話題を一言で）\n要点：\n・（重要なポイント1）\n・（重要なポイント2）\nTODO：（あれば記載、なければ「なし」）\n\n【通話内容】\n" + input.text
         }]
     )
-
     summary_text = summary_response.choices[0].message.content
     title = summary_text.split("\n")[0].replace("タイトル：", "").strip()
 
-    # Bubbleに保存
     async with httpx.AsyncClient() as http:
         response = await http.post(
-            f"https://{BUBBLE_APP_ID}.bubbleapps.io/version-test/api/1.1/obj/callnote",
-            headers={
+            "http
