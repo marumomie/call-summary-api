@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from dotenv import load_dotenv
 from pydantic import BaseModel
-import httpx, os
+import httpx
+import os
 
 load_dotenv()
 
@@ -29,16 +30,29 @@ def root():
 
 @app.post("/summarize")
 async def summarize(input: TextInput):
+    prompt = "以下の通話内容を日本語で要約してください。タイトル、要点、TODOを含めてください。\n\n" + input.text
     summary_response = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{
-            "role": "user",
-            "content": "以下の通話内容を日本語で要約してください。\n\n【出力形式】\nタイトル：（通話相手や話題を一言で）\n要点：\n・（重要なポイント1）\n・（重要なポイント2）\nTODO：（あれば記載、なければ「なし」）\n\n【通話内容】\n" + input.text
-        }]
+        messages=[{"role": "user", "content": prompt}]
     )
     summary_text = summary_response.choices[0].message.content
-    title = summary_text.split("\n")[0].replace("タイトル：", "").strip()
+    title = summary_text.split("\n")[0].strip()
+
+    bubble_url = "https://" + BUBBLE_APP_ID + ".bubbleapps.io/version-test/api/1.1/obj/callnote"
+    bubble_headers = {
+        "Authorization": "Bearer " + BUBBLE_API_KEY,
+        "Content-Type": "application/json",
+    }
+    bubble_data = {
+        "title": title,
+        "summary": summary_text,
+        "transcript": input.text,
+        "color": "yellow"
+    }
 
     async with httpx.AsyncClient() as http:
-        response = await http.post(
-            "http
+        response = await http.post(bubble_url, headers=bubble_headers, json=bubble_data)
+        print("Bubble status:", response.status_code)
+        print("Bubble body:", response.text)
+
+    return {"summary": summary_text}
