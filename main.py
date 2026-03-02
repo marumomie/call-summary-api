@@ -11,8 +11,9 @@ load_dotenv()
 app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-BUBBLE_API_KEY = os.getenv("BUBBLE_API_KEY")
-BUBBLE_APP_ID = os.getenv("BUBBLE_APP_ID")
+ADALO_API_KEY = os.getenv("ADALO_API_KEY")
+ADALO_APP_ID = os.getenv("ADALO_APP_ID")
+ADALO_COLLECTION_ID = os.getenv("ADALO_COLLECTION_ID")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,12 +39,12 @@ async def summarize(input: TextInput):
     summary_text = summary_response.choices[0].message.content
     title = summary_text.split("\n")[0].strip()
 
-    bubble_url = "https://" + BUBBLE_APP_ID + ".bubbleapps.io/version-test/api/1.1/obj/callnote"
-    bubble_headers = {
-        "Authorization": "Bearer " + BUBBLE_API_KEY,
+    adalo_url = "https://api.adalo.com/v0/apps/" + ADALO_APP_ID + "/collections/" + ADALO_COLLECTION_ID
+    adalo_headers = {
+        "Authorization": "Bearer " + ADALO_API_KEY,
         "Content-Type": "application/json",
     }
-    bubble_data = {
+    adalo_data = {
         "title": title,
         "summary": summary_text,
         "transcript": input.text,
@@ -51,8 +52,8 @@ async def summarize(input: TextInput):
     }
 
     async with httpx.AsyncClient() as http:
-        response = await http.post(bubble_url, headers=bubble_headers, json=bubble_data)
-        print("Bubble status:", response.status_code)
-        print("Bubble body:", response.text)
+        response = await http.post(adalo_url, headers=adalo_headers, json=adalo_data)
+        print("Adalo status:", response.status_code)
+        print("Adalo body:", response.text)
 
     return {"summary": summary_text}
