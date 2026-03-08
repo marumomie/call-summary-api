@@ -74,7 +74,7 @@ async def save_to_adalo(title: str, summary_text: str, transcript: str):
 async def summarize_text(text: str):
     prompt = "以下の通話内容を日本語で要約してください。タイトル、要点、TODOを含めてください。マークダウン記号（**、##など）は使わず、プレーンテキストで出力してください。\n\n" + text
     summary_response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}]
     )
     summary_text = summary_response.choices[0].message.content
@@ -137,7 +137,6 @@ async def transcribe(file: UploadFile = File(...)):
 
 @app.post("/transcribe-url")
 async def transcribe_url(input: TextInput):
-    # URLから音声をダウンロード
     try:
         async with httpx.AsyncClient(timeout=30.0, verify=False) as http:
             response = await http.get(input.text, follow_redirects=True)
@@ -145,23 +144,9 @@ async def transcribe_url(input: TextInput):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"音声ファイルの取得に失敗: {str(e)}")
 
-    # Whisperで文字起こし
     try:
         transcript_response = client.audio.transcriptions.create(
             model="whisper-1",
             file=("audio.m4a", audio_bytes, "audio/m4a"),
         )
         transcript_text = transcript_response.text
-    except OpenAIError as e:
-        raise HTTPException(status_code=502, detail=f"文字起こしエラー: {str(e)}")
-
-    # 要約
-    try:
-        title, summary_text = await summarize_text(transcript_text)
-    except OpenAIError as e:
-        raise HTTPException(status_code=502, detail=f"要約エラー: {str(e)}")
-
-    # Adaloに保存
-    await save_to_adalo(title, summary_text, transcript_text)
-
-    return {"transcript": transcript_text, "summary": summary_text}
