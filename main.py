@@ -55,7 +55,6 @@ async def save_to_adalo(title: str, summary_text: str, transcript: str):
             response = await http.post(adalo_url, headers=adalo_headers, json=adalo_data)
             logger.info(f"Adalo status: {response.status_code}")
             logger.info(f"Adalo body: {response.text}")
-
             if response.status_code not in (200, 201):
                 logger.error(f"Adalo保存失敗 (status: {response.status_code}): {response.text}")
     except httpx.TimeoutException:
@@ -75,7 +74,6 @@ async def summarize_text(text: str):
     return title, summary_text
 
 
-# ★ バックグラウンドで実行される処理（時間がかかってもOK）
 async def process_in_background(text: str):
     try:
         logger.info("バックグラウンド処理開始")
@@ -91,7 +89,6 @@ def root():
     return {"message": "APIが動いています！"}
 
 
-# ★ ヘルスチェック用（ウォームアップ用途でも使える）
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -99,8 +96,6 @@ def health():
 
 @app.post("/summarize")
 async def summarize(input: TextInput, background_tasks: BackgroundTasks):
-    # ★ すぐに「受け取った！」と返事する
-    # 実際の処理（OpenAI要約 → Adalo保存）はバックグラウンドで行う
     background_tasks.add_task(process_in_background, input.text)
     return {"status": "受け取りました。バックグラウンドで処理中です。"}
 
@@ -118,7 +113,6 @@ async def transcribe(file: UploadFile = File(...)):
         )
         transcript_text = transcript_response.text
         logger.info(f"文字起こし完了: {transcript_text[:50]}...")
-
     except OpenAIError as e:
         logger.error(f"Whisper APIエラー: {e}")
         raise HTTPException(status_code=502, detail=f"文字起こしエラー: {str(e)}")
