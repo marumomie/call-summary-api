@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI, OpenAIError
 from dotenv import load_dotenv
@@ -57,18 +57,11 @@ async def save_to_adalo(title: str, summary_text: str, transcript: str):
             logger.info(f"Adalo body: {response.text}")
 
             if response.status_code not in (200, 201):
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Adalo保存失敗 (status: {response.status_code}): {response.text}"
-                )
-    except HTTPException:
-        raise
+                logger.error(f"Adalo保存失敗 (status: {response.status_code}): {response.text}")
     except httpx.TimeoutException:
         logger.error("Adalo APIタイムアウト")
-        raise HTTPException(status_code=504, detail="Adalo APIがタイムアウトしました")
     except httpx.RequestError as e:
         logger.error(f"Adalo API接続エラー: {e}")
-        raise HTTPException(status_code=502, detail=f"Adalo APIへの接続に失敗しました: {str(e)}")
 
 
 async def summarize_text(text: str):
@@ -82,25 +75,34 @@ async def summarize_text(text: str):
     return title, summary_text
 
 
+# ★ バックグラウンドで実行される処理（時間がかかってもOK）
+async def process_in_background(text: str):
+    try:
+        logger.info("バックグラウンド処理開始")
+        title, summary_text = await summarize_text(text)
+        await save_to_adalo(title, summary_text, text)
+        logger.info("バックグラウンド処理完了")
+    except Exception as e:
+        logger.error(f"バックグラウンド処理エラー: {e}")
+
+
 @app.get("/")
 def root():
     return {"message": "APIが動いています！"}
 
 
+# ★ ヘルスチェック用（ウォームアップ用途でも使える）
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.post("/summarize")
-async def summarize(input: TextInput):
-    try:
-        title, summary_text = await summarize_text(input.text)
-    except OpenAIError as e:
-        logger.error(f"OpenAI APIエラー: {e}")
-        raise HTTPException(status_code=502, detail=f"OpenAI APIエラー: {str(e)}")
-    except Exception as e:
-        logger.error(f"要約処理中に予期しないエラー: {e}")
-        raise HTTPException(status_code=500, detail="要約処理中にエラーが発生しました")
-
-    await save_to_adalo(title, summary_text, input.text)
-
-    return {"summary": summary_text}
+async def summarize(input: TextInput, background_tasks: BackgroundTasks):
+    # ★ すぐに「受け取った！」と返事する
+    # 実際の処理（OpenAI要約 → Adalo保存）はバックグラウンドで行う
+    background_tasks.add_task(process_in_background, input.text)
+    return {"status": "受け取りました。バックグラウンドで処理中です。"}
 
 
 @app.post("/transcribe")
@@ -150,3 +152,17 @@ async def transcribe_url(input: TextInput):
             file=("audio.m4a", audio_bytes, "audio/m4a"),
         )
         transcript_text = transcript_response.text
+    except OpenAIError as e:
+        raise HTTPException(status_code=502, detail=f"文字起こしエラー: {str(e)}")
+
+    try:
+        title, summary_text = await summarize_text(transcript_text)
+    except OpenAIError as e:
+        raise HTTPException(status_code=502, detail=f"要約エラー: {str(e)}")
+
+    await save_to_adalo(title, summary_text, transcript_text)
+
+    return {
+        "transcript": transcript_text,
+        "summary": summary_text
+    }
